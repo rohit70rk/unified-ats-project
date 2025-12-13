@@ -1,0 +1,45 @@
+service: ats-integration-service
+org: rohit70r
+
+frameworkVersion: '4'
+
+provider:
+  name: aws
+  runtime: python3.9
+  region: us-east-1
+  environment:
+    # Use the Zoho keys from your .env file
+    ZOHO_CLIENT_ID: ${env:ZOHO_CLIENT_ID}
+    ZOHO_CLIENT_SECRET: ${env:ZOHO_CLIENT_SECRET}
+    ZOHO_REFRESH_TOKEN: ${env:ZOHO_REFRESH_TOKEN}
+    ZOHO_BASE_URL: ${env:ZOHO_BASE_URL}
+
+plugins:
+  - serverless-offline
+
+useDotenv: true
+
+functions:
+  getJobs:
+    handler: src/handlers/jobs.handler
+    events:
+      - http:
+          path: jobs
+          method: get
+          cors: true
+
+  createCandidate:
+    handler: src/handlers/candidates.handler
+    events:
+      - http:
+          path: candidates
+          method: post
+          cors: true
+
+  getApplications:
+    handler: src/handlers/applications.handler
+    events:
+      - http:
+          path: applications
+          method: get
+          cors: true
