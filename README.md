@@ -110,9 +110,9 @@ Creates a candidate in Zoho and links them to the Job ID.
       -d '{
         "first_name": "Alice",
         "last_name": "Smith",
-        "email": "alice.smith@example.com",
-        "phone": "0123456789",
-        "resume_url": "[https://linkedin.com/in/alicesmith](https://linkedin.com/in/alicesmith)",
+        "email": "alice123@gmail.com",
+        "phone": "0500000000",
+        "resume_url": "https://linkedin.com/in/alicesmith123",
         "job_id": "REPLACE_WITH_ACTUAL_JOB_ID"
       }'
 
