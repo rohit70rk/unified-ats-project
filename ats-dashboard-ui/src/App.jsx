@@ -14,8 +14,25 @@ function App() {
   // Data for Modals
   const [applications, setApplications] = useState([]);
   const [appLoading, setAppLoading] = useState(false);
-  const [formData, setFormData] = useState({ name: '', email: '', phone: '', resume_url: '' });
-  const [jobFormData, setJobFormData] = useState({ title: '', location: '', description: '' });
+  
+  // UPDATED: Split Name State
+  const [formData, setFormData] = useState({ 
+    first_name: '', 
+    last_name: '', 
+    email: '', 
+    phone: '', 
+    resume_url: '' 
+  });
+
+  // UPDATED: New Job Fields (Remote, City, Country)
+  const [jobFormData, setJobFormData] = useState({ 
+    title: '', 
+    city: '', 
+    country: '', 
+    description: '', 
+    remote: false 
+  });
+  
   const [submitStatus, setSubmitStatus] = useState(null);
 
   useEffect(() => {
@@ -43,7 +60,14 @@ function App() {
   const openApplyModal = (job) => {
     setActiveJob(job);
     setModalMode('APPLY');
-    setFormData({ name: '', email: '', phone: '', resume_url: 'https://linkedin.com/in/example' });
+    // Reset form with split names
+    setFormData({ 
+      first_name: '', 
+      last_name: '', 
+      email: '', 
+      phone: '', 
+      resume_url: 'https://linkedin.com/in/example' 
+    });
     setSubmitStatus(null);
   };
 
@@ -51,7 +75,7 @@ function App() {
     setActiveJob(job);
     setModalMode('VIEW_APPS');
     setAppLoading(true);
-    setApplications([]); 
+    setApplications([]);
     try {
       const apps = await fetchApplications(job.id);
       setApplications(apps);
@@ -69,7 +93,8 @@ function App() {
 
   const openCreateJobModal = () => {
     setModalMode('CREATE_JOB');
-    setJobFormData({ title: '', location: '', description: '' });
+    // Reset form with new fields
+    setJobFormData({ title: '', city: '', country: '', description: '', remote: false });
     setSubmitStatus(null);
   };
 
@@ -117,6 +142,7 @@ function App() {
             <p className="subtitle">System Status: {error ? '🔴 Offline' : '🟢 Online'}</p>
           </div>
         </div>
+        
         <div style={{display: 'flex', gap: '10px'}}>
             <button className="btn-primary" onClick={openCreateJobModal} style={{margin:0}}>
               + Post New Job
@@ -142,11 +168,10 @@ function App() {
             <table className="jobs-table">
               <thead>
                 <tr>
-                  {/* REORDERED: Unified ID is now first */}
                   <th style={{width: '100px'}}>Unified ID</th>
                   <th>Job Title</th>
                   <th>Location</th>
-                  <th>Status</th>
+                  <th style={{textAlign: 'center'}}>Status</th>
                   <th>External URL</th>
                   <th>Description</th>
                   <th style={{textAlign: 'center'}}>Actions</th>
@@ -155,13 +180,16 @@ function App() {
               <tbody>
                 {jobs.map((job) => (
                   <tr key={job.id}>
-                    {/* REORDERED & TRUNCATED: ID first, last 6 digits */}
+                    {/* ID Truncated in Table (Full ID shown in Modal) */}
                     <td style={{fontFamily: 'monospace', color: '#64748b', fontSize: '0.85rem', verticalAlign: 'middle'}}>
                         <span style={{color: '#cbd5e1'}}>...</span>{job.id.slice(-6)}
                     </td>
 
                     <td className="job-title-cell" style={{verticalAlign: 'middle'}}>{job.title}</td>
+                    
+                    {/* Location is now pre-formatted by Backend (City, Country OR Remote) */}
                     <td style={{verticalAlign: 'middle'}}>{job.location}</td>
+                    
                     <td style={{verticalAlign: 'middle'}}><span className={`status-pill ${job.status.toLowerCase()}`}>{job.status}</span></td>
                     
                     <td style={{verticalAlign: 'middle'}}>
@@ -207,6 +235,7 @@ function App() {
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <button className="close-btn" onClick={closeModal}>&times;</button>
             
+            {/* 1. DESCRIPTION MODAL */}
             {modalMode === 'VIEW_DESC' && (
               <>
                 <div className="modal-header">
@@ -219,30 +248,39 @@ function App() {
               </>
             )}
 
+            {/* 2. APPLY MODAL (Updated with First/Last Name) */}
             {modalMode === 'APPLY' && (
               <>
                 <div className="modal-header">
                   <h3>Apply for {activeJob?.title}</h3>
-                  <p>Unified ID: {activeJob?.id.slice(-6)}</p>
+                  <p>Job ID: {activeJob?.id}</p>
                 </div>
                 {submitStatus === 'success' ? (
                   <div className="success-message">✅ Application sent to Zoho!</div>
                 ) : (
                   <form onSubmit={handleApplySubmit} className="apply-form">
-                    <div className="form-group">
-                      <label>Full Name</label>
-                      <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                    {/* SPLIT NAME FIELDS */}
+                    <div style={{display: 'flex', gap: '10px'}}>
+                        <div className="form-group" style={{flex: 1}}>
+                            <label>First Name*</label>
+                            <input required value={formData.first_name} onChange={e => setFormData({...formData, first_name: e.target.value})} />
+                        </div>
+                        <div className="form-group" style={{flex: 1}}>
+                            <label>Last Name*</label>
+                            <input required value={formData.last_name} onChange={e => setFormData({...formData, last_name: e.target.value})} />
+                        </div>
                     </div>
+
                     <div className="form-group">
-                      <label>Email</label>
+                      <label>Email*</label>
                       <input required type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
                     </div>
                     <div className="form-group">
-                      <label>Phone</label>
+                      <label>Phone*</label>
                       <input required value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
                     </div>
                     <div className="form-group">
-                      <label>Resume URL (LinkedIn)</label>
+                      <label>Resume URL (LinkedIn)*</label>
                       <input required value={formData.resume_url} onChange={e => setFormData({...formData, resume_url: e.target.value})} />
                     </div>
                     <button type="submit" className="btn-submit" disabled={submitStatus === 'sending'}>
@@ -253,26 +291,49 @@ function App() {
               </>
             )}
 
+            {/* 3. CREATE JOB MODAL (Updated with Remote/City/Country) */}
             {modalMode === 'CREATE_JOB' && (
               <>
                 <div className="modal-header">
                   <h3>Post New Job</h3>
-                  <p>Test Endpoint: <code>POST /jobs</code></p>
                 </div>
                 {submitStatus === 'success' ? (
                   <div className="success-message">✅ Job Created in Zoho!</div>
                 ) : (
                   <form onSubmit={handleCreateJobSubmit} className="apply-form">
                     <div className="form-group">
-                      <label>Job Title</label>
-                      <input placeholder="e.g. Product Manager" required value={jobFormData.title} onChange={e => setJobFormData({...jobFormData, title: e.target.value})} />
+                      <label>Job Title*</label>
+                      <input placeholder="Product Manager" required value={jobFormData.title} onChange={e => setJobFormData({...jobFormData, title: e.target.value})} />
                     </div>
-                    <div className="form-group">
-                      <label>Location</label>
-                      <input placeholder="e.g. Remote / New York" required value={jobFormData.location} onChange={e => setJobFormData({...jobFormData, location: e.target.value})} />
+                    
+                    {/* REMOTE TOGGLE */}
+                    <div className="form-group" style={{display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px'}}>
+                        <input 
+                            type="checkbox" 
+                            id="remoteCheck"
+                            style={{width: 'auto', margin: 0}}
+                            checked={jobFormData.remote} 
+                            onChange={e => setJobFormData({...jobFormData, remote: e.target.checked})} 
+                        />
+                        <label htmlFor="remoteCheck" style={{margin: 0, fontWeight: 'normal'}}>This is a Remote Job</label>
                     </div>
+
+                    {/* CONDITIONAL LOCATION FIELDS */}
+                    {!jobFormData.remote && (
+                        <div style={{display: 'flex', gap: '10px'}}>
+                            <div className="form-group" style={{flex: 1}}>
+                                <label>City*</label>
+                                <input required={!jobFormData.remote} value={jobFormData.city} onChange={e => setJobFormData({...jobFormData, city: e.target.value})} />
+                            </div>
+                            <div className="form-group" style={{flex: 1}}>
+                                <label>Country*</label>
+                                <input required={!jobFormData.remote} value={jobFormData.country} onChange={e => setJobFormData({...jobFormData, country: e.target.value})} />
+                            </div>
+                        </div>
+                    )}
+
                     <div className="form-group">
-                      <label>Description (Min 150 chars)</label>
+                      <label>Description (Min 150 chars)*</label>
                       <textarea 
                         style={{width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '8px', minHeight: '100px', resize: 'vertical'}}
                         placeholder="Brief description..." 
@@ -289,10 +350,12 @@ function App() {
               </>
             )}
 
+            {/* 4. VIEW APPS MODAL (Updated with Full Job ID & Candidate ID) */}
             {modalMode === 'VIEW_APPS' && (
               <>
                 <div className="modal-header">
                   <h3>Applicants for {activeJob?.title}</h3>
+                  {/* SHOW FULL JOB ID */}
                   <p>Job ID: {activeJob?.id}</p>
                 </div>
                 <div className="apps-list">
@@ -304,6 +367,7 @@ function App() {
                     <table className="apps-table">
                       <thead>
                         <tr>
+                          {/* ADDED CANDIDATE ID COLUMN */}
                           <th>Candidate ID</th>
                           <th>Name</th>
                           <th>Email</th>

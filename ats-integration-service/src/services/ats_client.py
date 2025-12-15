@@ -2,8 +2,13 @@ import os
 import requests
 import json
 import time
+import logging
 from datetime import datetime, timedelta
 from requests.exceptions import RequestException
+
+# Configure logging
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 # --- GLOBAL CACHE ---
 _TOKEN_CACHE = {
@@ -25,7 +30,7 @@ class ATSClient:
         if _TOKEN_CACHE["access_token"] and current_time < _TOKEN_CACHE["expires_at"]:
             return _TOKEN_CACHE["access_token"]
 
-        print("DEBUG: Fetching NEW Token from Zoho...")
+        logger.info("Refreshing Zoho Access Token")
         params = {
             "refresh_token": self.refresh_token,
             "client_id": self.client_id,
@@ -34,15 +39,17 @@ class ATSClient:
         }
         try:
             response = requests.post(self.auth_url, params=params, timeout=10)
-            if response.status_code != 200:
-                raise Exception(f"Authentication Failed: {response.text}")
+            response.raise_for_status()
             
             data = response.json()
+            if 'access_token' not in data:
+                 raise Exception(f"No access token in response: {data}")
+
             _TOKEN_CACHE["access_token"] = data['access_token']
-            _TOKEN_CACHE["expires_at"] = current_time + 3300
+            _TOKEN_CACHE["expires_at"] = current_time + 3300 # Buffer before 1 hour expiry
             return data['access_token']
         except RequestException as e:
-            print(f"Network Error during Auth: {str(e)}")
+            logger.error(f"Auth Network Error: {str(e)}")
             raise Exception("Network error while connecting to Zoho Auth service")
 
     def _headers(self):
@@ -71,32 +78,52 @@ class ATSClient:
                 if not data: break
                 
                 for job in data:
+                    city = job.get('City', '')
+                    country = job.get('Country', '')
+                    remote = job.get('Remote_Job', False)
+                    
+                    if remote:
+                        loc_display = "Remote"
+                    elif city and country:
+                        loc_display = f"{city}, {country}"
+                    elif city:
+                        loc_display = city
+                    elif country:
+                        loc_display = country
+                    else:
+                        loc_display = "Location not specified"
+
                     all_jobs.append({
                         "id": job.get('id'),
                         "title": job.get('Job_Opening_Name'),
-                        "location": job.get('City', 'Remote'),
+                        "location": loc_display,
                         "status": job.get('Job_Opening_Status', 'OPEN').upper(),
                         "external_url": job.get('Job_Opening_URL', ''),
                         "description": job.get('Job_Description', 'No description provided.')
                     })
                 
                 info = response.json().get('info', {})
-                if not info.get('more_records'): has_more = False
-                else: page += 1
+                if not info.get('more_records'): 
+                    has_more = False
+                else: 
+                    page += 1
 
             return all_jobs
         except Exception as e:
-            print(f"DEBUG: Error in fetch_jobs: {str(e)}")
+            logger.error(f"Error in fetch_jobs: {str(e)}")
             raise e
 
     def create_candidate(self, candidate_data):
         url_create = f"{self.base_url}/Candidates"
         job_id = candidate_data.get('job_id')
+        first_name = candidate_data.get('first_name')
+        last_name = candidate_data.get('last_name')
         
-        full_name = candidate_data.get('name', 'Unknown Candidate')
-        parts = full_name.split(' ')
-        first_name = parts[0]
-        last_name = " ".join(parts[1:]) if len(parts) > 1 else "Candidate"
+        if not first_name or not last_name:
+             full_name = candidate_data.get('name', 'Unknown Candidate')
+             parts = full_name.split(' ')
+             first_name = parts[0]
+             last_name = " ".join(parts[1:]) if len(parts) > 1 else "Candidate"
 
         candidate_record = {
             "First_Name": first_name,
@@ -111,19 +138,17 @@ class ATSClient:
         candidate_id = None
 
         try:
-            print(f"DEBUG: Creating candidate {first_name} {last_name}...")
             response = requests.post(url_create, headers=self._headers(), json=zoho_payload, timeout=10)
             
             if response.status_code in [200, 201]:
                 result = response.json()
                 if result.get('data') and result['data'][0]['status'] == 'success':
                     candidate_id = result['data'][0]['details']['id']
-                    print(f"DEBUG: Created Candidate ID: {candidate_id}")
                 elif result.get('data') and result['data'][0]['code'] == 'DUPLICATE_DATA':
-                    print("DEBUG: Candidate exists. Fetching existing ID by Email...")
+                    logger.info("Duplicate candidate detected. Fetching existing ID.")
                     candidate_id = self._get_candidate_id_by_email(candidate_data.get('email'))
                 else:
-                    raise Exception(f"Zoho Validation: {json.dumps(result)}")
+                    raise Exception(f"Zoho Validation Failed: {json.dumps(result)}")
             else:
                 raise Exception(f"Zoho Create Failed: {response.text}")
 
@@ -134,7 +159,7 @@ class ATSClient:
             return {"id": candidate_id, "message": "Candidate created (No Job ID provided)"}
 
         except Exception as e:
-            print(f"DEBUG: Exception in create_candidate: {str(e)}")
+            logger.error(f"Error in create_candidate: {str(e)}")
             raise Exception(f"Error processing candidate: {str(e)}")
 
     def _associate_candidate_action(self, job_id, candidate_id):
@@ -147,15 +172,12 @@ class ATSClient:
             }]
         }
         
-        print(f"DEBUG: Associating Candidate {candidate_id} to Job {job_id} using 'actions/associate'...")
         try:
             response = requests.put(url_associate, headers=self._headers(), json=payload, timeout=10)
-            if response.status_code == 200:
-                print("DEBUG: Association Successful.")
-            else:
-                print(f"DEBUG: Association HTTP Error: {response.text}")
+            if response.status_code != 200:
+                logger.warning(f"Association failed: {response.text}")
         except Exception as e:
-            print(f"DEBUG: Association Exception: {str(e)}")
+            logger.error(f"Association Exception: {str(e)}")
 
     def _get_candidate_id_by_email(self, email):
         url = f"{self.base_url}/Candidates/search"
@@ -170,7 +192,6 @@ class ATSClient:
         return None
 
     def get_applications(self, job_id):
-        print(f"DEBUG: Searching Applications for Job_ID: {job_id}")
         url = f"{self.base_url}/Applications/search"
         
         try:
@@ -179,7 +200,7 @@ class ATSClient:
             has_more = True
             
             while has_more:
-                # Use the system field ($Job_Opening_Id) we discovered in your logs
+                # We still send the criteria to attempt server-side filtering
                 params = {
                     "criteria": f"(($Job_Opening_Id:equals:{job_id}))",
                     "page": page, 
@@ -190,13 +211,15 @@ class ATSClient:
                 
                 if response.status_code == 204: break 
                 if response.status_code != 200:
-                    print(f"DEBUG: Search Applications Error: {response.text}")
+                    logger.error(f"Search Applications Error: {response.text}")
                     break
                 
                 data = response.json().get('data', [])
                 if not data: break
                 
-                # Manual filtering to ensure we only get candidates for THIS job
+                # --- RESTORED MANUAL FILTERING ---
+                # This ensures we STRICTLY only return apps for the requested Job ID
+                # even if the API returns mixed results.
                 for app in data:
                     app_job_id = None
                     
@@ -214,14 +237,15 @@ class ATSClient:
                         all_apps.append(app)
 
                 info = response.json().get('info', {})
-                if not info.get('more_records'): has_more = False
-                else: page += 1
+                if not info.get('more_records'): 
+                    has_more = False
+                else: 
+                    page += 1
             
-            print(f"DEBUG: Found {len(all_apps)} applications after filtering.")
             return self._map_applications(all_apps)
             
         except Exception as e:
-            print(f"DEBUG: Exception in get_applications: {str(e)}")
+            logger.error(f"Exception in get_applications: {str(e)}")
             return []
 
     def _map_applications(self, data):
@@ -230,28 +254,20 @@ class ATSClient:
             # --- 1. GET CANDIDATE NAME ---
             cand_name = "Unknown Candidate"
             
-            # Priority 1: Check the 'Candidate_Name' Lookup Object (Most common in Zoho)
             cand_lookup = app.get('Candidate_Name')
             if isinstance(cand_lookup, dict):
                 cand_name = cand_lookup.get('name')
             elif isinstance(cand_lookup, str):
                 cand_name = cand_lookup
             
-            # Priority 2: Check 'Full_Name' field if lookup failed
             if cand_name == "Unknown Candidate" and app.get('Full_Name'):
                 cand_name = app.get('Full_Name')
 
-            # Priority 3: Parse 'Application_Name' (e.g. "Rohit for Python Dev")
             if cand_name == "Unknown Candidate" and app.get('Application_Name'):
                 app_name = app.get('Application_Name')
-                if " for " in app_name:
-                    cand_name = app_name.split(" for ")[0]
-                else:
-                    cand_name = app_name
+                cand_name = app_name.split(" for ")[0] if " for " in app_name else app_name
 
             # --- 2. GET CANDIDATE ID ---
-            # We look for 'Candidate_ID' (Readable ID like ZR_18_CAND) 
-            # or fallback to the system '$Candidate_Id'
             cand_id = app.get('Candidate_ID')
             if not cand_id:
                 cand_id = app.get('$Candidate_Id', 'N/A')
@@ -263,8 +279,8 @@ class ATSClient:
                 status_upper = "APPLIED"
 
             unified_apps.append({
-                "id": app.get('id'), # System ID of the Application
-                "candidate_id": cand_id, # Readable Candidate ID (ZR_...)
+                "id": app.get('id'),
+                "candidate_id": cand_id,
                 "candidate_name": cand_name,
                 "email": app.get('Email', 'No Email'),
                 "status": status_upper
@@ -275,28 +291,45 @@ class ATSClient:
         url = f"{self.base_url}/JobOpenings"
         target_date = (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d')
         desc = job_data.get('description', 'No description provided.')
+        
         if len(desc) < 150:
             desc += " " + ("(Padding for Zoho minimum length requirement) " * 5)
+            
+        is_remote = job_data.get('remote', False)
+        city = job_data.get('city', '')
+        country = job_data.get('country', '')
 
-        zoho_payload = {
-            "data": [{
-                "Posting_Title": job_data.get('title'),
-                "Job_Opening_Name": job_data.get('title'),
-                "Target_Date": target_date,
-                "Client_Name": "My company", 
-                "City": job_data.get('location'),
-                "Job_Description": desc,
-                "Job_Opening_Status": "In-progress",
-                "Industry": "Software",
-                "Job_Type": "Full time",
-                "NumberOfPositions": 1
-            }]
+        job_record = {
+            "Posting_Title": job_data.get('title'),
+            "Job_Opening_Name": job_data.get('title'),
+            "Target_Date": target_date,
+            "Client_Name": "My company", 
+            "Job_Description": desc,
+            "Job_Opening_Status": "In-progress",
+            "Industry": "Software",
+            "Job_Type": "Full time",
+            "NumberOfPositions": 1,
+            "Remote_Job": is_remote,
         }
+
+        if not is_remote:
+            job_record["City"] = city
+            job_record["Country"] = country
+
+        zoho_payload = {"data": [job_record]}
+
         try:
             response = requests.post(url, headers=self._headers(), json=zoho_payload, timeout=10)
+            
             if response.status_code not in [200, 201]:
                 raise Exception(f"Zoho Error: {response.text}")
+                
+            response_json = response.json()
+            if response_json.get('data') and response_json['data'][0].get('status') == 'error':
+                 logger.error(f"Zoho Logic Error: {json.dumps(response_json)}")
+                 raise Exception(f"Zoho Error: {json.dumps(response_json)}")
+
             return {"message": "Job created successfully"}
         except Exception as e:
-            print(f"DEBUG: Exception in create_job: {str(e)}")
+            logger.error(f"Exception in create_job: {str(e)}")
             raise Exception(f"Error creating job: {str(e)}")

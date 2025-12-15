@@ -19,8 +19,9 @@ export const createCandidate = async (candidateData) => {
     const response = await API.post('/candidates', candidateData);
     return response.data;
   } catch (error) {
-    console.error("API Error createCandidate:", error);
-    throw error;
+    // FIX: Throw the actual error message from the backend
+    const msg = error.response?.data?.error || error.message;
+    throw new Error(msg);
   }
 };
 
@@ -39,7 +40,8 @@ export const createJob = async (jobData) => {
     const response = await API.post('/jobs', jobData);
     return response.data;
   } catch (error) {
-    console.error("API Error createJob:", error);
-    throw error;
+    // FIX: Throw the actual error message from the backend
+    const msg = error.response?.data?.error || error.message;
+    throw new Error(msg);
   }
 };
