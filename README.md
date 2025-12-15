@@ -59,21 +59,21 @@ Since this is a server-side app, you need a **Self-Client** or **Server-based** 
 
 2. **Setup Python Environment:**
 
-    Navigate to the service directory
+        #Navigate to the service directory
         cd ats-integration-service
 
-    Create virtual environment
+        #Create virtual environment
         python3 -m venv venv
     
-    Activate environment:
+        #Activate environment:
 
-    (MacOS/Linux)
+        #(MacOS/Linux)
         source venv/bin/activate
 
-    For Windows: 
+        #For Windows: 
         venv\Scripts\activate
 
-    Install dependencies
+        #Install dependencies
         pip install -r requirements.txt
 
 3. **Configure Environment Variables:**
