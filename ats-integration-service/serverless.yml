@@ -28,6 +28,14 @@ functions:
           method: get
           cors: true
 
+  createJob:
+    handler: src/handlers/create_job.handler
+    events:
+      - http:
+          path: jobs
+          method: post
+          cors: true
+
   createCandidate:
     handler: src/handlers/candidates.handler
     events:

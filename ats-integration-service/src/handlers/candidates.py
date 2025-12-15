@@ -4,15 +4,17 @@ from src.utils.responses import success, error
 
 def handler(event, context):
     try:
-        # Parse body (Serverless passes body as a string)
+        # Parse body
         body = json.loads(event.get('body', '{}'))
         
-        # Basic Validation
+        # Validate that job_id is present (Required for "Attaching" to a job)
         required = ['name', 'email', 'job_id']
         if not all(field in body for field in required):
             return error("Missing required fields: name, email, job_id", 400)
 
         client = ATSClient()
+        
+        # Pass the data to the service
         result = client.create_candidate(body)
         
         return success(result, 201)
