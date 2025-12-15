@@ -54,27 +54,27 @@ Since this is a server-side app, you need a **Self-Client** or **Server-based** 
 ### Installation Steps
 1. **Install Serverless Framework:**
 
-    npm install -g serverless
-    npm install serverless-offline --save-dev
+        npm install -g serverless
+        npm install serverless-offline --save-dev
 
 2. **Setup Python Environment:**
 
     Navigate to the service directory
-    cd ats-integration-service
+        cd ats-integration-service
 
     Create virtual environment
-    python3 -m venv venv
+        python3 -m venv venv
     
     Activate environment:
 
     (MacOS/Linux)
-    source venv/bin/activate
+        source venv/bin/activate
 
     For Windows: 
-    venv\Scripts\activate
+        venv\Scripts\activate
 
     Install dependencies
-    pip install -r requirements.txt
+        pip install -r requirements.txt
 
 3. **Configure Environment Variables:**
     Create a file named `.env` in the root of `ats-integration-service` and add your keys:
@@ -111,7 +111,7 @@ Creates a candidate in Zoho and links them to the Job ID.
         "first_name": "Alice",
         "last_name": "Smith",
         "email": "alice.smith@example.com",
-        "phone": "555-0100",
+        "phone": "0123456789",
         "resume_url": "[https://linkedin.com/in/alicesmith](https://linkedin.com/in/alicesmith)",
         "job_id": "REPLACE_WITH_ACTUAL_JOB_ID"
       }'
@@ -128,8 +128,8 @@ Helper endpoint to post new jobs to Zoho.
       -H "Content-Type: application/json" \
       -d '{
         "title": "Backend Engineer",
-        "city": "Remote",
-        "country": "USA",
-        "remote": true,
+        "city": "Jaipur",
+        "country": "India",
+        "remote": false,
         "description": "Building scalable APIs with Python and AWS Lambda..."
       }'
