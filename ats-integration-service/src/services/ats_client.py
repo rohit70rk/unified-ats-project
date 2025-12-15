@@ -306,7 +306,7 @@ class ATSClient:
             "Client_Name": "My company", 
             "Job_Description": desc,
             "Job_Opening_Status": "In-progress",
-            "Industry": "Software",
+            "Industry": "IT Services",
             "Job_Type": "Full time",
             "NumberOfPositions": 1,
             "Remote_Job": is_remote,
